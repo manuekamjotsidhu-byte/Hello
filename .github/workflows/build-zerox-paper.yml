@@ -2,12 +2,9 @@ name: Build ZEROX Paper 1.21.11 v2
 
 on:
   push:
-    branches:
-      - main
-      - zerox-paper-v2
+    branches: [main, zerox-paper-v2]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -56,13 +53,20 @@ jobs:
         run: ./gradlew applyPatches --stacktrace
 
       - name: Apply ZEROX source patches
-        run: python3 tools/apply_zerox.py paper
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/apply_zerox.py paper
+          python3 tools/fix_1_21_11_mappings.py paper
 
       - name: Capture exact generated source diffs
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p audit
+          git -C paper add -N \
+            paper-server/src/main/java/io/papermc/paper/zerox \
+            paper-server/src/main/resources/META-INF/zerox-build.json
           git -C paper diff -- paper-server/src/main/java paper-server/src/main/resources > audit/zerox-paper-server.patch
           git -C paper/paper-server/src/minecraft diff > audit/zerox-minecraft.patch
           test -s audit/zerox-paper-server.patch
@@ -120,15 +124,12 @@ jobs:
           import hashlib
           from pathlib import Path
           root = Path('smoke').resolve()
-          expected_key_hash = 'f584e637e37772eaa684ad6dcfa49858206c02ab68217c69579204600239660b'
+          key_hash = 'f584e637e37772eaa684ad6dcfa49858206c02ab68217c69579204600239660b'
           fingerprint = hashlib.sha256(f'ci|25565|{root}'.encode()).hexdigest()
-          token = hashlib.sha256(f'{fingerprint}|{expected_key_hash}|ZEROX-PAPER-1.21.11'.encode()).hexdigest()
+          token = hashlib.sha256(f'{fingerprint}|{key_hash}|ZEROX-PAPER-1.21.11'.encode()).hexdigest()
           Path('smoke/.zerox/activation.properties').write_text(
-              '# ZEROX CI activation\n'
-              'format=1\n'
-              f'fingerprint={fingerprint}\n'
-              f'token={token}\n'
-              'activatedAt=ci\n'
+              '# ZEROX CI activation\nformat=1\n'
+              f'fingerprint={fingerprint}\ntoken={token}\nactivatedAt=ci\n'
           )
           PY
           cd smoke
@@ -138,40 +139,22 @@ jobs:
           PID=$!
           READY=0
           for _ in $(seq 1 240); do
-            if grep -q 'Done (' server.log && grep -q '\[ZEROX\] Ready in ' server.log; then
-              READY=1
-              break
-            fi
-            if ! kill -0 "$PID" 2>/dev/null; then
-              cat server.log
-              wait "$PID" || true
-              exit 1
-            fi
+            if grep -q 'Done (' server.log && grep -q '\[ZEROX\] Ready in ' server.log; then READY=1; break; fi
+            if ! kill -0 "$PID" 2>/dev/null; then cat server.log; wait "$PID" || true; exit 1; fi
             sleep 1
           done
-          if [ "$READY" -ne 1 ]; then
-            cat server.log
-            kill "$PID" 2>/dev/null || true
-            exit 1
-          fi
+          if [ "$READY" -ne 1 ]; then cat server.log; kill "$PID" 2>/dev/null || true; exit 1; fi
 
           echo version >&3
           sleep 2
           grep -q 'ZEROX Paper 1.21.11-v2' server.log
-
           echo 'fill 0 80 0 15 83 15 minecraft:tnt' >&3
           echo 'setblock -1 80 0 minecraft:redstone_block' >&3
+
           GUARDED=0
           for _ in $(seq 1 90); do
-            if grep -q 'TNT load guard deferred' server.log; then
-              GUARDED=1
-              break
-            fi
-            if ! kill -0 "$PID" 2>/dev/null; then
-              cat server.log
-              wait "$PID" || true
-              exit 1
-            fi
+            if grep -q 'TNT load guard deferred' server.log; then GUARDED=1; break; fi
+            if ! kill -0 "$PID" 2>/dev/null; then cat server.log; wait "$PID" || true; exit 1; fi
             sleep 1
           done
           if [ "$GUARDED" -ne 1 ]; then
