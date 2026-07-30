@@ -1,0 +1,32 @@
+Subject: [ZEROX 1/4] Add visible build identity and audit metadata
+
+Files modified by the generated source patch:
+
+- org/bukkit/craftbukkit/CraftServer.java
+- io/papermc/paper/zerox/ZeroxBuildInfo.java
+- META-INF/zerox-build.json
+
+Behavioral changes:
+
+```diff
+- private final String serverName = ServerBuildInfo.buildInfo().brandName();
++ private final String serverName = "ZEROX Paper";
+
+- return this.serverVersion + " (MC: " + this.console.getServerVersion() + ")";
++ return this.serverVersion + " / ZEROX Paper 1.21.11-v2 (MC: "
++     + this.console.getServerVersion() + ")";
+```
+
+The build embeds:
+
+- ZEROX version
+- Minecraft version
+- upstream Paper build and commit
+- ZEROX source commit
+- CI build number and build timestamp
+- patch count
+- source repository identifier
+- Java target
+- explicit claim flags
+
+This patch is informational and does not alter gameplay or plugin scheduling.
