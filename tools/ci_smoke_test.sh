@@ -15,8 +15,8 @@ printf 'eula=true\n' > "$SMOKE/eula.txt"
 printf 'server-port=%s\nonline-mode=false\nview-distance=2\nsimulation-distance=2\nspawn-protection=0\n' "$PORT" > "$SMOKE/server.properties"
 cat > "$SMOKE/.zerox/zerox.properties" <<'EOF'
 worker-threads=auto
-tnt.max-explosions-per-tick=8
-tnt.max-processing-ms-per-tick=5
+tnt.max-explosions-per-tick=4
+tnt.max-processing-ms-per-tick=3
 tnt.log-deferrals=true
 EOF
 
