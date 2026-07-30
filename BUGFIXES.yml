@@ -1,6 +1,6 @@
 schema: 1
 project: ZEROX Paper
-version: 2.0.0
+version: 2.1.0
 minecraft: 1.21.11
 upstream:
   project: PaperMC/Paper
@@ -45,14 +45,33 @@ performance_changes:
       - startup timing report
     regression_test: GitHub Actions reaches the Minecraft Done state and shuts down cleanly
 
+  - id: ZPX-PERF-005
+    name: Bounded plugin parallelism and synchronous scheduler load guard
+    patch: patches/server/0005-plugin-parallelism-load-guard.patch
+    defaults:
+      sync_global_budget_ms: 6
+      sync_per_plugin_budget_ms: 3
+      sync_task_warning_ms: 10
+      max_penalty_ticks: 20
+      async_queue_capacity: 4096
+    behavior:
+      - Existing asynchronous Bukkit tasks use a bounded parallel executor.
+      - Over-budget repeating synchronous scheduler tasks are deferred.
+      - One-shot synchronous tasks and Bukkit event listeners remain synchronous.
+    regression_test: GitHub Actions requires the configured plugin scheduler profile to be reported during real server startup
+
 claims:
   all_paper_bugs_patched: false
   guaranteed_sub_10_mspt: false
   full_multicore_world_ticking: false
+  arbitrary_sync_plugin_events_parallelized: false
+  bounded_async_plugin_parallelism: true
+  sync_repeating_task_load_guard: true
   paper_plugin_loading: true
   huge_tnt_chains_complete_instantly: false
 
 notes:
   - No Paper issue ID is listed as fixed until a dedicated source patch and regression test are added.
   - A checksum proves file integrity, not publisher identity.
+  - Synchronous event handlers can still block a tick and must be rewritten by their plugin authors for safe async execution.
   - Performance acceptance requires testing the actual production plugin and world workload.
