@@ -59,6 +59,7 @@ jobs:
           python3 tools/apply_zerox.py paper
           python3 tools/fix_1_21_11_mappings.py paper
           python3 tools/apply_plugin_parallelism.py paper
+          python3 tools/finalize_v3_metadata.py paper
 
       - name: Capture exact generated source diffs
         shell: bash
@@ -86,7 +87,7 @@ jobs:
           JAR="$(find paper/paper-server/build/libs -maxdepth 1 -type f -name 'paper-paperclip-*.jar' | head -n1)"
           test -n "$JAR"
           cp "$JAR" "out/$ZEROX_JAR"
-          python3 tools/package_zerox.py "out/$ZEROX_JAR" \
+          python3 tools/package_zerox_v3.py "out/$ZEROX_JAR" \
             --upstream-commit "$UPSTREAM_COMMIT" \
             --zerox-commit "$ZEROX_COMMIT" \
             --build-number "$ZEROX_BUILD_NUMBER" \
@@ -103,6 +104,7 @@ jobs:
           unzip -p "out/$ZEROX_JAR" META-INF/zerox-build.json | tee out/zerox-build.json
           grep -F '"name": "ZEROX Paper"' out/zerox-build.json
           grep -F '"version": "2.1.0"' out/zerox-build.json
+          grep -F '"pluginAsyncParallelism": "bounded"' out/zerox-build.json
           grep -F '"upstreamPaperBuild": 132' out/zerox-build.json
           unzip -l "out/$ZEROX_JAR" | grep -F 'META-INF/zerox/patches/0005-plugin-parallelism-load-guard.patch'
 
