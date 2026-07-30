@@ -1,0 +1,44 @@
+Subject: [ZEROX 3/4] Budget primed TNT explosions per world tick
+
+Files modified by the generated source patch:
+
+- net/minecraft/world/entity/item/PrimedTnt.java
+- io/papermc/paper/zerox/ZeroxExplosionLimiter.java
+
+Core behavior:
+
+```diff
+ if (fuse <= 0) {
++    if (level instanceof ServerLevel serverLevel
++        && !ZeroxExplosionLimiter.tryAcquire(serverLevel)) {
++        this.setFuse(1);
++        return;
++    }
+     explode();
+ }
+```
+
+The limiter maintains a weak per-world budget keyed by the current game tick. An explosion proceeds only while both limits remain available:
+
+- maximum explosions per tick;
+- maximum elapsed explosion-scheduling time for that tick.
+
+Balanced defaults:
+
+```properties
+tnt.max-explosions-per-tick=16
+tnt.max-processing-ms-per-tick=7
+```
+
+Properties are read from `.zerox/zerox.properties` and exposed as JVM system properties before server initialization.
+
+Safety properties:
+
+- The TNT entity remains alive with a one-tick fuse when deferred.
+- Explosion events and world mutation remain on the authoritative server thread.
+- No Bukkit event is called asynchronously.
+- Event ordering within the explosions processed during a tick remains synchronous.
+
+Tradeoff:
+
+Huge chain reactions take more ticks to complete. This is deliberate load shedding; it protects server responsiveness rather than pretending tens of thousands of explosions can finish instantly at 20 TPS.
