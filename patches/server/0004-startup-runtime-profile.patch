@@ -1,0 +1,30 @@
+Subject: [ZEROX 4/4] Add startup profile, activation and readiness telemetry
+
+Files modified by the generated source patch:
+
+- net/minecraft/server/Main.java
+- net/minecraft/server/MinecraftServer.java
+- io/papermc/paper/zerox/ZeroxBootstrap.java
+
+Startup behavior:
+
+- Runs the ZEROX bootstrap before Paper opens the Minecraft listener.
+- Performs first-run activation on the allocated Minecraft port.
+- Stores a fingerprint-bound derived token instead of the plaintext key.
+- Creates `.zerox/zerox.properties` only when missing.
+- Selects bounded worker and Netty thread counts from visible processors.
+- Warns when Java is not 21 or the maximum heap is below 2 GiB.
+- Reports elapsed startup time after Paper reaches its `Done` state.
+
+Default generated profile:
+
+```properties
+worker-threads=auto
+tnt.max-explosions-per-tick=4
+tnt.max-processing-ms-per-tick=3
+tnt.log-deferrals=true
+```
+
+The profile only sets JVM properties that the administrator has not already supplied. This allows explicit startup flags to override ZEROX defaults.
+
+The activation HTTP server closes before Paper binds the same port. The post-activation handoff pause is 250 milliseconds.
