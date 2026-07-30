@@ -1,0 +1,57 @@
+Subject: [ZEROX 5/5] Bound async plugin parallelism and protect the main scheduler
+
+Files modified by the generated source patch:
+
+- org/bukkit/craftbukkit/scheduler/CraftScheduler.java
+- org/bukkit/craftbukkit/scheduler/CraftAsyncScheduler.java
+- org/bukkit/craftbukkit/scheduler/ZeroxSchedulerGuard.java
+- io/papermc/paper/zerox/ZeroxBootstrap.java
+
+Core synchronous behavior:
+
+```diff
+ while (scheduler task is ready) {
++    if (repeating task belongs to an over-budget plugin) {
++        move task to the next tick;
++        continue;
++    }
++    long start = System.nanoTime();
+     task.run();
++    record(plugin, task class, System.nanoTime() - start);
+ }
+```
+
+Core asynchronous behavior:
+
+```diff
+- 4 core threads, unlimited maximum threads, direct handoff
++ automatically sized core and maximum threads
++ bounded queue
++ caller-runs backpressure on the async scheduler management thread
+```
+
+Default profile:
+
+```properties
+plugins.sync-global-budget-ms=6
+plugins.sync-per-plugin-budget-ms=3
+plugins.sync-task-warning-ms=10
+plugins.max-penalty-ticks=20
+plugins.defer-repeating-tasks=true
+plugins.log-overruns=true
+plugins.async-core-threads=auto
+plugins.async-max-threads=auto
+plugins.async-queue-capacity=4096
+```
+
+Safety properties:
+
+- Only tasks already submitted through Bukkit's asynchronous scheduler execute in the parallel pool.
+- Synchronous repeating tasks remain on the authoritative server thread and are delayed rather than moved.
+- One-shot synchronous tasks are not deferred.
+- Bukkit event listeners, commands and world/entity mutation are not automatically parallelized.
+- Over-budget task logs identify the plugin, task ID, task class and measured duration.
+
+Tradeoff:
+
+A plugin that repeatedly exceeds its scheduler budget will run its repeating scheduled work less frequently. Administrators can disable deferral or raise the budgets, but doing so increases the risk of TPS loss.
