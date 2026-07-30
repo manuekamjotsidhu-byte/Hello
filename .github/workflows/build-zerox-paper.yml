@@ -34,9 +34,9 @@ jobs:
         run: ./gradlew applyPatches --stacktrace
       - name: Apply ZEROX source patches
         run: python3 tools/apply_zerox.py paper
-      - name: Build Paperclip jar
+      - name: Build Mojmap Paperclip jar
         working-directory: paper
-        run: ./gradlew createPaperclipJar --stacktrace
+        run: ./gradlew createMojmapPaperclipJar --stacktrace
       - name: Collect artifacts
         shell: bash
         run: |
