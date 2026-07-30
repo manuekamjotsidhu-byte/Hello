@@ -23,7 +23,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "ZEROX Build Bot"
+          git config --global user.email "build@zeroxhost.space"
       - name: Clone pinned Paper
         run: git clone --filter=blob:none https://github.com/PaperMC/Paper.git paper && cd paper && git checkout 6da8af7ca4e29f4ea6961905a96d9f244980c932
       - name: Apply Paper patches
@@ -31,9 +34,9 @@ jobs:
         run: ./gradlew applyPatches --stacktrace
       - name: Apply ZEROX source patches
         run: python3 tools/apply_zerox.py paper
-      - name: Build Paperclip jar
+      - name: Build Mojmap Paperclip jar
         working-directory: paper
-        run: ./gradlew createPaperclipJar --stacktrace
+        run: ./gradlew createMojmapPaperclipJar --stacktrace
       - name: Collect artifacts
         shell: bash
         run: |

@@ -40,6 +40,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Locale;
@@ -84,7 +85,7 @@ public final class ZeroxBootstrap {
         return 25565;
     }
 
-    private static String fingerprint(int port) throws Exception {
+    private static String fingerprint(int port) {
         String serverId = firstNonBlank(System.getenv("P_SERVER_UUID"), System.getenv("SERVER_UUID"), System.getenv("P_SERVER_ID"), "local");
         String material = serverId + "|" + port + "|" + Path.of("").toAbsolutePath().normalize();
         return sha256(material);
@@ -146,9 +147,14 @@ public final class ZeroxBootstrap {
         Files.writeString(DIR.resolve("build.properties"), "name=ZEROX Paper\nmcVersion=1.21.11\nupstream=6da8af7ca4e29f4ea6961905a96d9f244980c932\nprofileVersion=1\n", StandardCharsets.UTF_8);
     }
 
-    private static String sha256(String s) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8))).toLowerCase(Locale.ROOT);
+    private static String sha256(String s) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8))).toLowerCase(Locale.ROOT);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is unavailable", ex);
+        }
     }
+
     private static String firstNonBlank(String... values) {
         for (String v : values) if (v != null && !v.isBlank()) return v;
         return "local";
