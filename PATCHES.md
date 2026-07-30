@@ -19,12 +19,12 @@
    - Disables armor-stand collision lookups by default.
    - Enables Paper's optimized explosion calculation by default.
    - Disables pathfinding recalculation on every block update by default.
-   - Reduces the default primed-TNT entity tick ceiling from 100 to 32 per tick.
+   - Reduces the default primed-TNT entity tick ceiling from 100 to 16 per tick.
 
 3. `0003-adaptive-tnt-explosion-budget.patch`
    - Adds a per-world explosion budget.
    - Defers excess primed-TNT explosions by resetting their fuse to one tick.
-   - Defaults to 16 explosions and 7 milliseconds of explosion scheduling work per world tick.
+   - Defaults to 4 explosions and 3 milliseconds of explosion scheduling work per world tick.
    - Keeps every explosion on the authoritative server thread to preserve Paper/Bukkit event ordering.
    - Large TNT chains therefore take longer to complete instead of blocking one enormous tick.
 
