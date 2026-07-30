@@ -23,7 +23,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
       - name: Clone pinned Paper
         run: git clone --filter=blob:none https://github.com/PaperMC/Paper.git paper && cd paper && git checkout 6da8af7ca4e29f4ea6961905a96d9f244980c932
       - name: Apply Paper patches
