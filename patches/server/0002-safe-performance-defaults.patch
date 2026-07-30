@@ -18,7 +18,7 @@ Behavioral changes:
 + public boolean updatePathfindingOnBlockUpdate = false;
 
 - this.maxTntTicksPerTick = this.getInt("max-tnt-per-tick", 100);
-+ this.maxTntTicksPerTick = this.getInt("max-tnt-per-tick", 32);
++ this.maxTntTicksPerTick = this.getInt("max-tnt-per-tick", 16);
 ```
 
 Rationale:
