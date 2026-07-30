@@ -32,15 +32,16 @@ This demonstrates that the previous fork had good light-load performance but no 
 GitHub Actions performs an automated safety/load smoke test on Java 21:
 
 1. Builds the fork from pinned Paper 1.21.11 build 132 source.
-2. Starts the generated Paperclip jar with a 1 GiB heap.
+2. Starts the generated Paperclip jar with a 1 GiB heap on a small hosted runner.
 3. Requires the server to reach the Minecraft `Done` state.
-4. Requires version output to contain `ZEROX Paper 1.21.11-v2`.
-5. Places and ignites 1,024 TNT blocks.
-6. Requires the ZEROX TNT load guard to defer explosion work.
-7. Requires the server process to remain alive after the load.
-8. Runs a TPS command and performs a clean console shutdown.
+4. Requires runtime identity to contain `ZEROX Paper 1.21.11-v2`.
+5. Force-loads the target chunk.
+6. Places and ignites 1,024 TNT blocks.
+7. Requires the ZEROX TNT load guard to defer explosion work.
+8. Requires the server process to remain alive after the load.
+9. Runs a TPS command and performs a clean console shutdown.
 
-This test establishes build/startup integrity and confirms that load shedding activates. It does not establish a production MSPT service-level objective.
+An earlier 8-explosion/5-ms test remained alive and reported 18.6 one-minute TPS shortly after ignition on the constrained CI runner. The production default was subsequently tightened to 4 explosions and 3 ms per tick. This test establishes build/startup integrity and confirms that load shedding activates; it is not a production MSPT service-level benchmark.
 
 ## Production acceptance target
 
@@ -79,23 +80,30 @@ ZEROX v2 protects responsiveness by delaying excess explosions. For very large T
 - fewer explosions are allowed to consume one tick;
 - the limiter can be tuned in `.zerox/zerox.properties`.
 
-Default balanced profile:
+Default strict profile:
 
 ```properties
-tnt.max-explosions-per-tick=16
-tnt.max-processing-ms-per-tick=7
+tnt.max-explosions-per-tick=4
+tnt.max-processing-ms-per-tick=3
 ```
 
-Stricter TPS-protection profile:
+More restrictive profile:
+
+```properties
+tnt.max-explosions-per-tick=2
+tnt.max-processing-ms-per-tick=2
+```
+
+Faster-blast profile with greater lag risk:
 
 ```properties
 tnt.max-explosions-per-tick=8
 tnt.max-processing-ms-per-tick=5
 ```
 
-Faster-blast profile with greater lag risk:
+Very fast blast processing, highest lag risk:
 
 ```properties
-tnt.max-explosions-per-tick=32
-tnt.max-processing-ms-per-tick=12
+tnt.max-explosions-per-tick=16
+tnt.max-processing-ms-per-tick=7
 ```
