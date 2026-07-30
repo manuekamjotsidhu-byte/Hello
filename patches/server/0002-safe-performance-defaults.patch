@@ -1,0 +1,31 @@
+Subject: [ZEROX 2/4] Apply conservative performance defaults
+
+Files modified by the generated source patch:
+
+- io/papermc/paper/configuration/WorldConfiguration.java
+- org/spigotmc/SpigotWorldConfig.java
+
+Behavioral changes:
+
+```diff
+- public boolean doCollisionEntityLookups = true;
++ public boolean doCollisionEntityLookups = false;
+
+- public boolean optimizeExplosions = false;
++ public boolean optimizeExplosions = true;
+
+- public boolean updatePathfindingOnBlockUpdate = true;
++ public boolean updatePathfindingOnBlockUpdate = false;
+
+- this.maxTntTicksPerTick = this.getInt("max-tnt-per-tick", 100);
++ this.maxTntTicksPerTick = this.getInt("max-tnt-per-tick", 32);
+```
+
+Rationale:
+
+- Avoid repeated armor-stand collision scans where the administrator has not opted in.
+- Use Paper's optimized explosion block-density calculation.
+- Prevent block updates from creating large pathfinding-recalculation storms.
+- Bound primed-TNT entity ticking before the dedicated explosion budget is reached.
+
+Administrators can override generated defaults in Paper/Spigot world configuration. Redstone behavior is not changed by this patch.
