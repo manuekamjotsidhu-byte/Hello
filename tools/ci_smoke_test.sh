@@ -18,6 +18,15 @@ worker-threads=auto
 tnt.max-explosions-per-tick=4
 tnt.max-processing-ms-per-tick=3
 tnt.log-deferrals=true
+plugins.sync-global-budget-ms=6
+plugins.sync-per-plugin-budget-ms=3
+plugins.sync-task-warning-ms=10
+plugins.max-penalty-ticks=20
+plugins.defer-repeating-tasks=true
+plugins.log-overruns=true
+plugins.async-core-threads=2
+plugins.async-max-threads=8
+plugins.async-queue-capacity=4096
 EOF
 
 SMOKE="$SMOKE" PORT="$PORT" SERVER_ID="$SERVER_ID" python3 - <<'PY'
@@ -74,7 +83,8 @@ if [[ "$READY" -ne 1 ]]; then
   exit 1
 fi
 
-grep -q 'ZEROX Paper 1.21.11-v2' server.log
+grep -q 'ZEROX Paper 1.21.11-v3' server.log
+grep -q '\[ZEROX\] Plugin scheduler: sync=6ms global/3ms per plugin; async=2-8 threads, queue=4096.' server.log
 
 echo 'forceload add 0 0' >&3
 sleep 3
@@ -128,6 +138,7 @@ for _ in $(seq 1 45); do
     trap - EXIT
     cp server.log "$OUT/ci-server.log"
     grep '\[ZEROX\] Ready in ' server.log > "$OUT/ci-startup.txt"
+    grep '\[ZEROX\] Plugin scheduler:' server.log > "$OUT/ci-plugin-scheduler.txt"
     grep 'TNT load guard deferred' server.log > "$OUT/ci-tnt-guard.txt"
     grep 'TPS from last' server.log | tail -n 1 > "$OUT/ci-tps-after-tnt.txt" || true
     exit 0
