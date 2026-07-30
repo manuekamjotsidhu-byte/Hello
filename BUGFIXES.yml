@@ -22,7 +22,7 @@ performance_changes:
   - id: ZPX-PERF-002
     name: Primed TNT entity tick ceiling
     patch: patches/server/0002-safe-performance-defaults.patch
-    default: 32
+    default: 16
     configurable_at: spigot.yml world-settings.default.max-tnt-per-tick
     regression_test: GitHub Actions TNT load smoke test
 
@@ -30,8 +30,8 @@ performance_changes:
     name: Per-world TNT explosion budget
     patch: patches/server/0003-adaptive-tnt-explosion-budget.patch
     defaults:
-      max_explosions_per_tick: 16
-      max_processing_ms_per_tick: 7
+      max_explosions_per_tick: 4
+      max_processing_ms_per_tick: 3
     behavior: Excess primed TNT explosions are deferred to later ticks.
     regression_test: GitHub Actions requires the limiter to activate while the server remains alive
 
