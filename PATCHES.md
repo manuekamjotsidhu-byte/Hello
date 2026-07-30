@@ -11,6 +11,10 @@ Upstream: PaperMC/Paper commit `6da8af7ca4e29f4ea6961905a96d9f244980c932`.
 5. Pathfinding recalculation on block updates defaults to disabled when the upstream field is present.
 6. Embedded build identity is written to `.zerox/build.properties`.
 
+## Build output
+
+GitHub Actions builds the patched Paperclip distribution as `ZEROX-Paper-1.21.11.jar`, generates its SHA-256 checksum, and uploads both files as the `ZEROX-Paper-1.21.11` workflow artifact.
+
 ## Scope and claims
 
 This is a source-built Paper fork. It does not claim that every Paper bug is patched or that MSPT is guaranteed under arbitrary workloads. The performance changes are conservative defaults intended to reduce common entity, explosion, and pathfinding overhead while preserving Paper plugin loading.
