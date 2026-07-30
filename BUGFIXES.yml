@@ -1,0 +1,58 @@
+schema: 1
+project: ZEROX Paper
+version: 2.0.0
+minecraft: 1.21.11
+upstream:
+  project: PaperMC/Paper
+  paper_build: 132
+  commit: c5eb0790f199da6c38d0a650e1e5cd5415b28185
+
+paper_issue_fixes: []
+
+performance_changes:
+  - id: ZPX-PERF-001
+    name: Safe world defaults
+    patch: patches/server/0002-safe-performance-defaults.patch
+    scope:
+      - armor stand collision lookup
+      - explosion calculation
+      - pathfinding updates
+    regression_test: GitHub Actions compilation and startup smoke test
+
+  - id: ZPX-PERF-002
+    name: Primed TNT entity tick ceiling
+    patch: patches/server/0002-safe-performance-defaults.patch
+    default: 32
+    configurable_at: spigot.yml world-settings.default.max-tnt-per-tick
+    regression_test: GitHub Actions TNT load smoke test
+
+  - id: ZPX-PERF-003
+    name: Per-world TNT explosion budget
+    patch: patches/server/0003-adaptive-tnt-explosion-budget.patch
+    defaults:
+      max_explosions_per_tick: 16
+      max_processing_ms_per_tick: 7
+    behavior: Excess primed TNT explosions are deferred to later ticks.
+    regression_test: GitHub Actions requires the limiter to activate while the server remains alive
+
+  - id: ZPX-PERF-004
+    name: Startup runtime profile
+    patch: patches/server/0004-startup-runtime-profile.patch
+    scope:
+      - bounded worker-thread selection
+      - bounded Netty event-loop selection
+      - Java and heap warnings
+      - startup timing report
+    regression_test: GitHub Actions reaches the Minecraft Done state and shuts down cleanly
+
+claims:
+  all_paper_bugs_patched: false
+  guaranteed_sub_10_mspt: false
+  full_multicore_world_ticking: false
+  paper_plugin_loading: true
+  huge_tnt_chains_complete_instantly: false
+
+notes:
+  - No Paper issue ID is listed as fixed until a dedicated source patch and regression test are added.
+  - A checksum proves file integrity, not publisher identity.
+  - Performance acceptance requires testing the actual production plugin and world workload.
