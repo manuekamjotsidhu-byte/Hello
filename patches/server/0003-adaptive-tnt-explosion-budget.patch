@@ -23,11 +23,11 @@ The limiter maintains a weak per-world budget keyed by the current game tick. An
 - maximum explosions per tick;
 - maximum elapsed explosion-scheduling time for that tick.
 
-Balanced defaults:
+Strict defaults:
 
 ```properties
-tnt.max-explosions-per-tick=16
-tnt.max-processing-ms-per-tick=7
+tnt.max-explosions-per-tick=4
+tnt.max-processing-ms-per-tick=3
 ```
 
 Properties are read from `.zerox/zerox.properties` and exposed as JVM system properties before server initialization.
