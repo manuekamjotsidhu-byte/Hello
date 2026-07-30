@@ -103,86 +103,12 @@ jobs:
           grep -F '"upstreamPaperBuild": 132' out/zerox-build.json
           unzip -l "out/$ZEROX_JAR" | grep -F 'META-INF/zerox/patches/0003-adaptive-tnt-explosion-budget.patch'
 
-      - name: Startup and TNT load smoke test
+      - name: Startup and loaded-chunk TNT test
         shell: bash
         env:
           P_SERVER_UUID: ci
           SERVER_PORT: '25565'
-        run: |
-          set -euo pipefail
-          mkdir -p smoke/.zerox
-          cp "out/$ZEROX_JAR" smoke/server.jar
-          printf 'eula=true\n' > smoke/eula.txt
-          printf 'server-port=25565\nonline-mode=false\nview-distance=2\nsimulation-distance=2\nspawn-protection=0\n' > smoke/server.properties
-          cat > smoke/.zerox/zerox.properties <<'EOF'
-          worker-threads=auto
-          tnt.max-explosions-per-tick=8
-          tnt.max-processing-ms-per-tick=5
-          tnt.log-deferrals=true
-          EOF
-          python3 - <<'PY'
-          import hashlib
-          from pathlib import Path
-          root = Path('smoke').resolve()
-          key_hash = 'f584e637e37772eaa684ad6dcfa49858206c02ab68217c69579204600239660b'
-          fingerprint = hashlib.sha256(f'ci|25565|{root}'.encode()).hexdigest()
-          token = hashlib.sha256(f'{fingerprint}|{key_hash}|ZEROX-PAPER-1.21.11'.encode()).hexdigest()
-          Path('smoke/.zerox/activation.properties').write_text(
-              '# ZEROX CI activation\nformat=1\n'
-              f'fingerprint={fingerprint}\ntoken={token}\nactivatedAt=ci\n'
-          )
-          PY
-          cd smoke
-          mkfifo console
-          exec 3<>console
-          java -Xms1G -Xmx1G -jar server.jar --nogui <console >server.log 2>&1 &
-          PID=$!
-          READY=0
-          for _ in $(seq 1 240); do
-            if grep -q 'Done (' server.log && grep -q '\[ZEROX\] Ready in ' server.log; then READY=1; break; fi
-            if ! kill -0 "$PID" 2>/dev/null; then cat server.log; wait "$PID" || true; exit 1; fi
-            sleep 1
-          done
-          if [ "$READY" -ne 1 ]; then cat server.log; kill "$PID" 2>/dev/null || true; exit 1; fi
-
-          echo version >&3
-          sleep 2
-          grep -q 'ZEROX Paper 1.21.11-v2' server.log
-          echo 'fill 0 80 0 15 83 15 minecraft:tnt' >&3
-          echo 'setblock -1 80 0 minecraft:redstone_block' >&3
-
-          GUARDED=0
-          for _ in $(seq 1 90); do
-            if grep -q 'TNT load guard deferred' server.log; then GUARDED=1; break; fi
-            if ! kill -0 "$PID" 2>/dev/null; then cat server.log; wait "$PID" || true; exit 1; fi
-            sleep 1
-          done
-          if [ "$GUARDED" -ne 1 ]; then
-            cat server.log
-            echo 'TNT guard did not activate' >&2
-            kill "$PID" 2>/dev/null || true
-            exit 1
-          fi
-
-          sleep 15
-          kill -0 "$PID"
-          echo tps >&3
-          sleep 3
-          echo stop >&3
-          for _ in $(seq 1 45); do
-            if ! kill -0 "$PID" 2>/dev/null; then
-              wait "$PID" || true
-              cp server.log ../out/ci-server.log
-              grep '\[ZEROX\] Ready in ' server.log > ../out/ci-startup.txt
-              grep 'TNT load guard deferred' server.log > ../out/ci-tnt-guard.txt
-              exit 0
-            fi
-            sleep 1
-          done
-          cat server.log
-          kill "$PID" 2>/dev/null || true
-          wait "$PID" || true
-          exit 1
+        run: bash tools/ci_smoke_test.sh "out/$ZEROX_JAR"
 
       - name: Upload ZEROX Paper v2
         uses: actions/upload-artifact@v4
