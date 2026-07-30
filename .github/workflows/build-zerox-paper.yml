@@ -1,10 +1,18 @@
 name: Build ZEROX Paper 1.21.11
+
 on:
   push:
-    branches: [zerox-paper-1.21.11]
+    branches:
+      - main
+      - zerox-paper-1.21.11
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,8 +23,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+          cache: gradle
       - name: Clone pinned Paper
-        run: git clone https://github.com/PaperMC/Paper.git paper && cd paper && git checkout 6da8af7ca4e29f4ea6961905a96d9f244980c932
+        run: git clone --filter=blob:none https://github.com/PaperMC/Paper.git paper && cd paper && git checkout 6da8af7ca4e29f4ea6961905a96d9f244980c932
       - name: Apply Paper patches
         working-directory: paper
         run: ./gradlew applyPatches --stacktrace
@@ -26,13 +35,19 @@ jobs:
         working-directory: paper
         run: ./gradlew createPaperclipJar --stacktrace
       - name: Collect artifacts
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p out
-          cp paper/paper-server/build/libs/paper-paperclip-*.jar out/ZEROX-Paper-1.21.11.jar
-          sha256sum out/ZEROX-Paper-1.21.11.jar > out/ZEROX-Paper-1.21.11.jar.sha256
+          JAR="$(find paper/paper-server/build/libs -maxdepth 1 -type f -name 'paper-paperclip-*.jar' | head -n1)"
+          test -n "$JAR"
+          cp "$JAR" out/ZEROX-Paper-1.21.11.jar
+          (cd out && sha256sum ZEROX-Paper-1.21.11.jar > ZEROX-Paper-1.21.11.jar.sha256)
           cp PATCHES.md out/PATCHES.md
-      - uses: actions/upload-artifact@v4
+      - name: Upload ZEROX Paper
+        uses: actions/upload-artifact@v4
         with:
           name: ZEROX-Paper-1.21.11
           path: out/*
           if-no-files-found: error
+          retention-days: 30
