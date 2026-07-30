@@ -47,6 +47,65 @@ jobs:
           cp "$JAR" out/ZEROX-Paper-1.21.11.jar
           (cd out && sha256sum ZEROX-Paper-1.21.11.jar > ZEROX-Paper-1.21.11.jar.sha256)
           cp PATCHES.md out/PATCHES.md
+      - name: Smoke test server startup
+        shell: bash
+        env:
+          P_SERVER_UUID: ci
+          SERVER_PORT: '25565'
+        run: |
+          set -euo pipefail
+          mkdir -p smoke/.zerox
+          cp out/ZEROX-Paper-1.21.11.jar smoke/server.jar
+          printf 'eula=true\n' > smoke/eula.txt
+          printf 'server-port=25565\nonline-mode=false\nview-distance=2\nsimulation-distance=2\n' > smoke/server.properties
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          root = Path('smoke').resolve()
+          expected_key_hash = 'f584e637e37772eaa684ad6dcfa49858206c02ab68217c69579204600239660b'
+          fingerprint = hashlib.sha256(f'ci|25565|{root}'.encode()).hexdigest()
+          token = hashlib.sha256(f'{fingerprint}|{expected_key_hash}|ZEROX-PAPER-1.21.11'.encode()).hexdigest()
+          Path('smoke/.zerox/activation.properties').write_text(
+              '# ZEROX CI activation\n'
+              'format=1\n'
+              f'fingerprint={fingerprint}\n'
+              f'token={token}\n'
+              'activatedAt=ci\n'
+          )
+          PY
+          cd smoke
+          mkfifo console
+          exec 3<>console
+          java -Xms512M -Xmx1G -jar server.jar --nogui <console >server.log 2>&1 &
+          PID=$!
+          READY=0
+          for _ in $(seq 1 240); do
+            if grep -q 'Done (' server.log && grep -q '\[ZEROX\] License verified' server.log; then
+              READY=1
+              break
+            fi
+            if ! kill -0 "$PID" 2>/dev/null; then
+              cat server.log
+              wait "$PID" || true
+              exit 1
+            fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then
+            cat server.log
+            kill "$PID" 2>/dev/null || true
+            exit 1
+          fi
+          echo stop >&3
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$PID" 2>/dev/null; then
+              wait "$PID" || true
+              exit 0
+            fi
+            sleep 1
+          done
+          kill "$PID" 2>/dev/null || true
+          wait "$PID" || true
       - name: Upload ZEROX Paper
         uses: actions/upload-artifact@v4
         with:
