@@ -27,21 +27,51 @@ The player then created 30,870 TNT blocks. During the resulting chain reaction, 
 
 This demonstrates that the previous fork had good light-load performance but no effective explosion work budget.
 
-## ZEROX v2 CI acceptance test
+## ZEROX v2 TNT acceptance test
 
-GitHub Actions performs an automated safety/load smoke test on Java 21:
+GitHub Actions starts the real Paperclip jar on Java 21, force-loads a chunk, places and ignites 1,024 TNT blocks, requires the TNT limiter to defer work, requires the process to remain alive and performs a clean shutdown.
 
-1. Builds the fork from pinned Paper 1.21.11 build 132 source.
-2. Starts the generated Paperclip jar with a 1 GiB heap on a small hosted runner.
-3. Requires the server to reach the Minecraft `Done` state.
-4. Requires runtime identity to contain `ZEROX Paper 1.21.11-v2`.
-5. Force-loads the target chunk.
-6. Places and ignites 1,024 TNT blocks.
-7. Requires the ZEROX TNT load guard to defer explosion work.
-8. Requires the server process to remain alive after the load.
-9. Runs a TPS command and performs a clean console shutdown.
+This proves that load shedding activates. It is not a production MSPT guarantee.
 
-An earlier 8-explosion/5-ms test remained alive and reported 18.6 one-minute TPS shortly after ignition on the constrained CI runner. The production default was subsequently tightened to 4 explosions and 3 ms per tick. This test establishes build/startup integrity and confirms that load shedding activates; it is not a production MSPT service-level benchmark.
+## ZEROX v3 plugin scheduler acceptance test
+
+The v3 CI run additionally requires the real server to report the configured scheduler profile:
+
+```text
+[ZEROX] Plugin scheduler: sync=6ms global/3ms per plugin; async=2-8 threads, queue=4096.
+```
+
+The build also compiles the modified synchronous and asynchronous CraftScheduler implementations and embeds the exact generated source diff.
+
+The CI smoke test validates installation and runtime configuration. A representative plugin-load benchmark still requires the production plugin set because plugin behavior differs substantially.
+
+## Plugin-load protection model
+
+ZEROX v3 separates plugin pressure into two classes:
+
+### Asynchronous Bukkit tasks
+
+Plugins that already call Bukkit's asynchronous scheduler execute in a bounded parallel executor. The default automatic sizing is based on visible processors and can be overridden in `.zerox/zerox.properties`.
+
+### Synchronous repeating scheduler tasks
+
+These tasks cannot safely execute in parallel when they access Bukkit, entities, chunks or plugin state. ZEROX measures them on the server thread. When a plugin exceeds the configured per-plugin budget, subsequent repeating executions are delayed while one-shot synchronous tasks continue to run.
+
+Default profile:
+
+```properties
+plugins.sync-global-budget-ms=6
+plugins.sync-per-plugin-budget-ms=3
+plugins.sync-task-warning-ms=10
+plugins.max-penalty-ticks=20
+plugins.defer-repeating-tasks=true
+plugins.log-overruns=true
+plugins.async-core-threads=auto
+plugins.async-max-threads=auto
+plugins.async-queue-capacity=4096
+```
+
+This model reduces scheduler-driven tick storms. It cannot automatically parallelize event listeners such as movement, block, inventory or combat handlers because those handlers participate synchronously in the current event result.
 
 ## Production acceptance target
 
@@ -69,16 +99,11 @@ Target under normal production load:
 - Chunk corruption: 0
 - Plugin compatibility failures: 0
 
-These are acceptance targets, not unconditional guarantees. Huge synchronous world edits, plugins, uncontrolled chunk generation, or unbounded explosions can exceed them.
+Also record per-plugin scheduler warnings and spark profiles. Any plugin repeatedly producing 10+ ms synchronous tasks should be optimized or reconfigured; increasing the guard limits merely allows it to consume more of the tick.
+
+These are acceptance targets, not unconditional guarantees. Huge synchronous world edits, synchronous plugin listeners, uncontrolled chunk generation or unbounded explosions can exceed them.
 
 ## TNT behavior tradeoff
-
-ZEROX v2 protects responsiveness by delaying excess explosions. For very large TNT chains:
-
-- total blast completion time increases;
-- individual explosions and Bukkit events remain on the server thread;
-- fewer explosions are allowed to consume one tick;
-- the limiter can be tuned in `.zerox/zerox.properties`.
 
 Default strict profile:
 
@@ -99,11 +124,4 @@ Faster-blast profile with greater lag risk:
 ```properties
 tnt.max-explosions-per-tick=8
 tnt.max-processing-ms-per-tick=5
-```
-
-Very fast blast processing, highest lag risk:
-
-```properties
-tnt.max-explosions-per-tick=16
-tnt.max-processing-ms-per-tick=7
 ```
