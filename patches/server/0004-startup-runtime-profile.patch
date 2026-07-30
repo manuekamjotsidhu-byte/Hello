@@ -20,8 +20,8 @@ Default generated profile:
 
 ```properties
 worker-threads=auto
-tnt.max-explosions-per-tick=16
-tnt.max-processing-ms-per-tick=7
+tnt.max-explosions-per-tick=4
+tnt.max-processing-ms-per-tick=3
 tnt.log-deferrals=true
 ```
 
