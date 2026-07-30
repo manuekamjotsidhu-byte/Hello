@@ -16,7 +16,10 @@ def replace(path: Path, old: str, new: str, description: str) -> None:
 build_info = root / "paper-server/src/main/java/io/papermc/paper/zerox/ZeroxBuildInfo.java"
 replace(build_info, 'public static final String VERSION = "2.0.0";', 'public static final String VERSION = "2.1.0";', "v3 version")
 replace(build_info, 'public static final int PATCH_COUNT = 4;', 'public static final int PATCH_COUNT = 5;', "v3 patch count")
-replace(build_info, 'MINECRAFT_VERSION + "-v2 / "', 'MINECRAFT_VERSION + "-v3 / "', "visible v3 identity")
+replace(build_info, 'MINECRAFT_VERSION + "-v2 / "', 'MINECRAFT_VERSION + "-v3 / "', "startup v3 identity")
+
+craft_server = root / "paper-server/src/main/java/org/bukkit/craftbukkit/CraftServer.java"
+replace(craft_server, 'ZEROX Paper 1.21.11-v2', 'ZEROX Paper 1.21.11-v3', "CraftServer version identity")
 
 bootstrap = root / "paper-server/src/main/java/io/papermc/paper/zerox/ZeroxBootstrap.java"
 replace(bootstrap, 'profileVersion=2\\n",', 'profileVersion=3\\n",', "profile version")
