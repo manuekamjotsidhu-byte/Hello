@@ -1,8 +1,8 @@
-name: Build ZEROX Paper 1.21.11 v3
+name: Build ZEROX Paper 1.21.11 v4
 
 on:
   push:
-    branches: [main, zerox-paper-v3-plugin-parallelism]
+    branches: [main, zerox-paper-v4-semantic-preserving]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 env:
   UPSTREAM_COMMIT: c5eb0790f199da6c38d0a650e1e5cd5415b28185
-  ZEROX_JAR: ZEROX-Paper-1.21.11-v3.jar
+  ZEROX_JAR: ZEROX-Paper-1.21.11-v4.jar
 
 jobs:
   build:
@@ -60,6 +60,7 @@ jobs:
           python3 tools/fix_1_21_11_mappings.py paper
           python3 tools/apply_plugin_parallelism.py paper
           python3 tools/finalize_v3_metadata.py paper
+          python3 tools/apply_semantic_preserving.py paper
 
       - name: Capture exact generated source diffs
         shell: bash
@@ -87,7 +88,7 @@ jobs:
           JAR="$(find paper/paper-server/build/libs -maxdepth 1 -type f -name 'paper-paperclip-*.jar' | head -n1)"
           test -n "$JAR"
           cp "$JAR" "out/$ZEROX_JAR"
-          python3 tools/package_zerox_v3.py "out/$ZEROX_JAR" \
+          python3 tools/package_zerox_v4.py "out/$ZEROX_JAR" \
             --upstream-commit "$UPSTREAM_COMMIT" \
             --zerox-commit "$ZEROX_COMMIT" \
             --build-number "$ZEROX_BUILD_NUMBER" \
@@ -103,22 +104,24 @@ jobs:
           unzip -t "out/$ZEROX_JAR"
           unzip -p "out/$ZEROX_JAR" META-INF/zerox-build.json | tee out/zerox-build.json
           grep -F '"name": "ZEROX Paper"' out/zerox-build.json
-          grep -F '"version": "2.1.0"' out/zerox-build.json
-          grep -F '"pluginAsyncParallelism": "bounded"' out/zerox-build.json
+          grep -F '"version": "2.2.0"' out/zerox-build.json
+          grep -F '"semanticPreservingDefault": true' out/zerox-build.json
+          grep -F '"syncTaskDeferralDefault": false' out/zerox-build.json
+          grep -F '"tntLoadSheddingDefault": false' out/zerox-build.json
           grep -F '"upstreamPaperBuild": 132' out/zerox-build.json
-          unzip -l "out/$ZEROX_JAR" | grep -F 'META-INF/zerox/patches/0005-plugin-parallelism-load-guard.patch'
+          unzip -l "out/$ZEROX_JAR" | grep -F 'META-INF/zerox/patches/0006-semantic-preserving-defaults.patch'
 
-      - name: Startup, scheduler profile and loaded-chunk TNT test
+      - name: Startup and semantic-preservation regression test
         shell: bash
         env:
           P_SERVER_UUID: ci
           SERVER_PORT: '25565'
         run: bash tools/ci_smoke_test.sh "out/$ZEROX_JAR"
 
-      - name: Upload ZEROX Paper v3
+      - name: Upload ZEROX Paper v4
         uses: actions/upload-artifact@v4
         with:
-          name: ZEROX-Paper-1.21.11-v3
+          name: ZEROX-Paper-1.21.11-v4
           path: out/*
           if-no-files-found: error
           retention-days: 30
