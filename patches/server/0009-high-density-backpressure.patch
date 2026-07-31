@@ -1,0 +1,29 @@
+Subject: [ZEROX 09/09] High-density backpressure and adaptive async execution
+
+Targets:
+- CraftAsyncScheduler
+- CraftScheduler / ZeroxSchedulerGuard
+- RegisteredListener
+- ZeroxJoinLoadController
+- GlobalConfiguration
+- ZeroxBootstrap and build metadata
+
+Behavior:
+- replaces CallerRunsPolicy so saturated async plugin work is never executed on the submitting/main thread;
+- preserves overflow work in an off-main queue with explicit backpressure;
+- adapts async concurrency from main-thread MSPT and measured synchronous plugin work;
+- reserves CPU capacity for the authoritative tick thread;
+- pauses, but does not discard, progressive join chunk expansion under pressure;
+- reduces per-player chunk send/load/generation bursts for high-density deployments;
+- retains synchronous Bukkit event ordering, cancellation and world mutation semantics;
+- records that 200-300 players on 8 GiB requires production workload validation and is not guaranteed.
+
+Default density values:
+- target MSPT: 20
+- reserve main cores: 2
+- async overflow queue: 16384
+- player chunk send/load/generate rates: 24/36/8 per second
+- concurrent player chunk loads/generates: 3/1
+- maximum joins finalized per tick: 1
+
+No task, event, chunk request or explosion is dropped by this patch.
