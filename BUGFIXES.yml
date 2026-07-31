@@ -1,6 +1,6 @@
 schema: 1
 project: ZEROX Paper
-version: 2.2.1
+version: 2.2.2
 minecraft: 1.21.11
 upstream:
   project: PaperMC/Paper
@@ -44,23 +44,49 @@ performance_changes:
         to: true
       backups: .zerox/backups
       marker: migration.v4-1-gameplay-restored
-    regression_test:
-      - legacy YAML is migrated before Paper configuration loading
-      - original files are backed up
-      - TNT load shedding remains disabled
-      - a 64-block TNT chain primes and completes
-      - no ZEROX TNT deferral is emitted
+
+  - id: ZPX-PERF-008
+    name: Progressive player join and chunk-load smoothing
+    patch: patches/server/0008-progressive-player-join-load.patch
+    defaults:
+      progressive_view_distance: true
+      initial_send_distance: 3
+      ramp_interval_ticks: 8
+      start_grace_ticks: 10
+      max_ramp_steps_per_tick: 1
+      player_chunk_send_rate: 35.0
+      player_chunk_load_rate: 50.0
+      player_chunk_generate_rate: 12.0
+      player_max_concurrent_chunk_loads: 4
+      player_max_concurrent_chunk_generates: 2
+      max_joins_per_tick: 1
+      slow_event_warning_ms: 15
+    behavior:
+      - PlayerJoinEvent and plugin world access remain synchronous and authoritative.
+      - Initial chunk expansion is queued and completed rather than dropped.
+      - Eligible chunk loading, generation and I/O use Paper worker threads.
+      - Explicit plugin changes to per-player send distance are respected.
+      - Slow synchronous listeners are attributed to plugin, event and listener class.
+    migration:
+      file: config/paper-global.yml
+      exact_upstream_defaults_only: true
+      backup: .zerox/backups/config_paper-global.yml.pre-v4.2.bak
+      marker: migration.v4-2-join-load
 
 claims:
   all_paper_bugs_patched: false
   guaranteed_sub_10_mspt: false
   full_multicore_world_ticking: false
   bounded_async_plugin_parallelism: true
+  progressive_join_load: true
+  join_work_dropped: false
+  arbitrary_sync_plugin_events_parallelized: false
+  slow_sync_event_attribution: true
   gameplay_semantics_preserved_default: true
-  legacy_tnt_migration: true
   paper_plugin_loading: true
 
 notes:
-  - Only exact values shipped by older ZEROX releases are migrated.
-  - Custom unrelated administrator settings are preserved.
-  - Every changed YAML file is backed up before replacement.
+  - Arbitrary synchronous Bukkit handlers cannot safely be moved to workers.
+  - v4.2 spreads only known join/chunk work that Paper already supports asynchronously.
+  - Custom non-default administrator values are preserved.
+  - Every migrated YAML file is backed up before replacement.
