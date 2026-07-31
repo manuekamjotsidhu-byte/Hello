@@ -1,4 +1,4 @@
-# ZEROX Paper 1.21.11 v4 patch manifest
+# ZEROX Paper 1.21.11 v4.1 patch manifest
 
 ## Upstream identity
 
@@ -16,29 +16,31 @@
 
 2. `0002-safe-performance-defaults.patch`
    - Enables Paper's optimized explosion calculation.
-   - Earlier v2 gameplay-changing defaults are superseded by patch 0006.
+   - Earlier behavior-changing defaults are superseded by patches 0006 and 0007.
 
 3. `0003-adaptive-tnt-explosion-budget.patch`
    - Provides an optional emergency TNT load-shedding mechanism.
-   - It is disabled by default in v4 and cannot activate while semantic-preserving mode is enabled.
+   - It cannot activate while semantic-preserving mode is enabled.
 
 4. `0004-startup-runtime-profile.patch`
-   - Reports startup timing.
-   - Configures bounded worker and Netty thread counts.
+   - Reports startup timing and configures bounded worker and Netty thread counts.
    - Retains first-run activation without storing the plaintext key.
 
 5. `0005-plugin-parallelism-load-guard.patch`
-   - Replaces the effectively unbounded async-plugin platform-thread executor with a bounded parallel executor.
-   - Measures synchronous Bukkit scheduler tasks by plugin, task ID and Java class.
-   - Produces slow-task telemetry.
-   - Contains an optional repeating-task load-shedding mode, disabled by patch 0006.
+   - Uses a bounded executor for tasks plugins already schedule asynchronously.
+   - Measures synchronous scheduler tasks and reports slow plugins.
 
 6. `0006-semantic-preserving-defaults.patch`
-   - Makes `behavior.preserve-semantics=true` the authoritative default.
-   - Never skips, replaces, cancels, reorders or delays synchronous plugin work.
-   - Restores upstream armor-stand collision, pathfinding and primed-TNT timing defaults.
-   - Disables TNT fuse deferral and scheduler task deferral.
-   - Retains bounded parallelism only for tasks plugins already scheduled asynchronously.
+   - Makes `behavior.preserve-semantics=true` authoritative.
+   - Restores upstream source defaults and disables task/TNT deferral.
+
+7. `0007-restore-legacy-tnt-and-world-settings.patch`
+   - Fixes upgrades where v2/v3 persistent YAML still overrides restored source defaults.
+   - Migrates exact ZEROX legacy values `max-tnt-per-tick: 16|32` to `100`.
+   - Restores armor-stand collision lookup and pathfinding update values previously written as `false`.
+   - Forces persistent semantic-mode settings to disable TNT and plugin-task deferral.
+   - Backs up every changed file under `.zerox/backups/`.
+   - Stores a one-time migration marker to avoid repeated edits.
 
 ## Default safety model
 
@@ -48,51 +50,18 @@ plugins.defer-repeating-tasks=false
 tnt.load-shedding-enabled=false
 ```
 
-The master semantic setting overrides old v3 values. Existing installations therefore preserve real behavior even when their previous configuration still contains aggressive deferral settings.
-
-Parallel execution remains enabled only for:
-
-- Bukkit tasks already submitted through asynchronous scheduler APIs;
-- Paper chunk generation and worker operations;
-- chunk I/O;
-- Netty networking;
-- other upstream Paper operations already designed for concurrency.
-
-The following remain authoritative and synchronous:
-
-- Bukkit event listeners and cancellation results;
-- commands;
-- inventory actions;
-- combat and entity mutation;
-- world and block mutation;
-- AI, redstone and tick ordering;
-- synchronous plugin return values.
-
-## Optional emergency mode
-
-Timing-changing load shedding requires an explicit opt-out from semantic preservation:
-
-```properties
-behavior.preserve-semantics=false
-plugins.defer-repeating-tasks=true
-tnt.load-shedding-enabled=true
-```
-
-This mode is not the production default because it changes when work occurs.
+Existing v2/v3 installations are repaired on first v4.1 startup. Unrelated administrator values are preserved; only exact legacy ZEROX values are migrated.
 
 ## Auditable build output
 
 GitHub Actions publishes:
 
-- `ZEROX-Paper-1.21.11-v4.jar`
-- `ZEROX-Paper-1.21.11-v4.jar.sha256`
-- `zerox-build.json`
+- `ZEROX-Paper-1.21.11-v4.1.jar`
+- `ZEROX-Paper-1.21.11-v4.1.jar.sha256`
 - exact generated source diffs
-- `PATCHES.md`, `BUGFIXES.yml` and `BENCHMARKS.md`
-- CI evidence for slow-task telemetry, preserved sync execution and bounded async concurrency
+- build, patch, claims and benchmark manifests
+- live migration, backup and TNT-completion evidence
 
 ## Accurate claim
 
-> Based on Paper 1.21.11 build 132 with selected ZEROX semantic-preserving performance, bounded async-plugin parallelism, observability, startup and activation patches.
-
-This release does not claim guaranteed MSPT, full multicore world ticking, or automatic thread-safety for synchronous plugins.
+> Based on Paper 1.21.11 build 132 with selected ZEROX semantic-preserving performance, bounded async-plugin parallelism, observability, migration, startup and activation patches.

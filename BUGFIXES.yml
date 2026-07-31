@@ -1,6 +1,6 @@
 schema: 1
 project: ZEROX Paper
-version: 2.2.0
+version: 2.2.1
 minecraft: 1.21.11
 upstream:
   project: PaperMC/Paper
@@ -14,30 +14,10 @@ performance_changes:
     name: Optimized explosion calculation
     patch: patches/server/0002-safe-performance-defaults.patch
     behavior_preserved: true
-    regression_test: GitHub Actions compilation and runtime startup
-
-  - id: ZPX-PERF-004
-    name: Startup runtime profile
-    patch: patches/server/0004-startup-runtime-profile.patch
-    scope:
-      - bounded Paper worker-thread selection
-      - bounded Netty event-loop selection
-      - Java and heap warnings
-      - startup timing report
-    behavior_preserved: true
 
   - id: ZPX-PERF-005
     name: Bounded async plugin parallelism and sync-task telemetry
     patch: patches/server/0005-plugin-parallelism-load-guard.patch
-    defaults:
-      sync_global_budget_ms: 6
-      sync_per_plugin_budget_ms: 3
-      sync_task_warning_ms: 10
-      async_queue_capacity: 4096
-    behavior:
-      - Bukkit tasks already marked asynchronous use a bounded parallel executor.
-      - Synchronous scheduler tasks are timed and attributed to their plugin.
-      - Synchronous events and world operations are never moved to worker threads.
     behavior_preserved: true
 
   - id: ZPX-PERF-006
@@ -48,41 +28,39 @@ performance_changes:
       defer_repeating_tasks: false
       tnt_load_shedding: false
       max_tnt_per_tick: 100
-      armor_stand_collision_lookups: true
-      update_pathfinding_on_block_update: true
-    behavior:
-      - Real plugin tasks are not skipped, replaced, cancelled, reordered or delayed.
-      - Real TNT fuse and explosion timing are not modified by ZEROX.
-      - Upstream AI, collision and tick behavior remains enabled.
-      - Old aggressive v3 settings are overridden by the master semantic-preservation switch.
-    regression_test:
-      - synthetic 12 ms repeating sync task continues at real cadence
-      - slow-task telemetry is emitted
-      - no ZEROX plugin-task deferral is emitted
-      - async concurrency reaches at least two tasks
-      - moderate TNT chain runs without ZEROX fuse deferral
 
-optional_modes:
-  emergency_load_shedding:
-    default: false
-    requires:
-      behavior.preserve-semantics: false
-    may_change_timing: true
+  - id: ZPX-FIX-007
+    name: Restore legacy persistent TNT and world values
+    patch: patches/server/0007-restore-legacy-tnt-and-world-settings.patch
+    migration:
+      spigot_max_tnt_per_tick:
+        from: [16, 32]
+        to: 100
+      armor_stand_collision_lookups:
+        from: false
+        to: true
+      update_pathfinding_on_block_update:
+        from: false
+        to: true
+      backups: .zerox/backups
+      marker: migration.v4-1-gameplay-restored
+    regression_test:
+      - legacy YAML is migrated before Paper configuration loading
+      - original files are backed up
+      - TNT load shedding remains disabled
+      - a 64-block TNT chain primes and completes
+      - no ZEROX TNT deferral is emitted
 
 claims:
   all_paper_bugs_patched: false
   guaranteed_sub_10_mspt: false
   full_multicore_world_ticking: false
-  arbitrary_sync_plugin_events_parallelized: false
   bounded_async_plugin_parallelism: true
-  sync_task_telemetry: true
-  sync_task_deferral_default: false
-  tnt_load_shedding_default: false
   gameplay_semantics_preserved_default: true
+  legacy_tnt_migration: true
   paper_plugin_loading: true
 
 notes:
-  - No Paper issue ID is listed as fixed until a dedicated source patch and regression test exist.
-  - A checksum proves file integrity, not publisher identity.
-  - A slow synchronous plugin can still block a tick; preserving real behavior means ZEROX reports it instead of silently changing its execution.
-  - Production acceptance requires testing the actual plugin set, world and player workload.
+  - Only exact values shipped by older ZEROX releases are migrated.
+  - Custom unrelated administrator settings are preserved.
+  - Every changed YAML file is backed up before replacement.
