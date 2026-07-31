@@ -1,4 +1,4 @@
-# ZEROX Paper 1.21.11 v3 patch manifest
+# ZEROX Paper 1.21.11 v4 patch manifest
 
 ## Upstream identity
 
@@ -11,71 +11,88 @@
 ## ZEROX patch series
 
 1. `0001-visible-build-identity.patch`
-   - Identifies the running implementation as `ZEROX Paper`.
-   - Extends version output with the ZEROX release identifier.
-   - Embeds `META-INF/zerox-build.json` in the executable Paperclip jar.
+   - Identifies the implementation as `ZEROX Paper`.
+   - Embeds build and source identity in the executable jar.
 
 2. `0002-safe-performance-defaults.patch`
-   - Disables armor-stand collision lookups by default.
-   - Enables Paper's optimized explosion calculation by default.
-   - Disables pathfinding recalculation on every block update by default.
-   - Reduces the default primed-TNT entity tick ceiling from 100 to 16 per tick.
+   - Enables Paper's optimized explosion calculation.
+   - Earlier v2 gameplay-changing defaults are superseded by patch 0006.
 
 3. `0003-adaptive-tnt-explosion-budget.patch`
-   - Adds a per-world explosion budget.
-   - Defers excess primed-TNT explosions by resetting their fuse to one tick.
-   - Defaults to 4 explosions and 3 milliseconds of explosion scheduling work per world tick.
-   - Keeps every explosion on the authoritative server thread to preserve Paper/Bukkit event ordering.
+   - Provides an optional emergency TNT load-shedding mechanism.
+   - It is disabled by default in v4 and cannot activate while semantic-preserving mode is enabled.
 
 4. `0004-startup-runtime-profile.patch`
-   - Reports ZEROX startup timing.
-   - Generates `.zerox/zerox.properties` for owned performance settings.
-   - Selects conservative chunk-worker and Netty thread counts from visible processors.
-   - Warns when Paper 1.21.11 is run outside Java 21 or with a very small heap.
-   - Retains first-run web activation and stores only a derived activation token.
+   - Reports startup timing.
+   - Configures bounded worker and Netty thread counts.
+   - Retains first-run activation without storing the plaintext key.
 
 5. `0005-plugin-parallelism-load-guard.patch`
-   - Replaces Paper's effectively unbounded async-plugin platform-thread executor with a bounded parallel executor.
-   - Defaults to an automatically sized async pool with a bounded 4,096-task queue.
-   - Measures every synchronous Bukkit scheduler task by plugin and task class.
-   - Applies a 6 ms total synchronous scheduler budget and a 3 ms per-plugin budget per tick.
-   - Defers only repeating synchronous scheduler tasks when a plugin accumulates scheduler debt.
-   - Never moves Bukkit events, one-shot synchronous tasks, commands, entity changes or world mutations to worker threads.
-   - Logs tasks taking at least 10 ms so the responsible plugin can be identified.
+   - Replaces the effectively unbounded async-plugin platform-thread executor with a bounded parallel executor.
+   - Measures synchronous Bukkit scheduler tasks by plugin, task ID and Java class.
+   - Produces slow-task telemetry.
+   - Contains an optional repeating-task load-shedding mode, disabled by patch 0006.
 
-## Main-thread safety model
+6. `0006-semantic-preserving-defaults.patch`
+   - Makes `behavior.preserve-semantics=true` the authoritative default.
+   - Never skips, replaces, cancels, reorders or delays synchronous plugin work.
+   - Restores upstream armor-stand collision, pathfinding and primed-TNT timing defaults.
+   - Disables TNT fuse deferral and scheduler task deferral.
+   - Retains bounded parallelism only for tasks plugins already scheduled asynchronously.
 
-ZEROX v3 uses parallelism only where the plugin has already requested asynchronous execution. Arbitrary synchronous plugin listeners cannot be automatically moved to other threads because their return values, cancellation state and world access are part of the current server tick.
+## Default safety model
 
-The load guard therefore protects the server thread by delaying over-budget repeating scheduler work. It does not skip event listeners or pretend unsafe world access is parallel-safe.
+```properties
+behavior.preserve-semantics=true
+plugins.defer-repeating-tasks=false
+tnt.load-shedding-enabled=false
+```
+
+The master semantic setting overrides old v3 values. Existing installations therefore preserve real behavior even when their previous configuration still contains aggressive deferral settings.
+
+Parallel execution remains enabled only for:
+
+- Bukkit tasks already submitted through asynchronous scheduler APIs;
+- Paper chunk generation and worker operations;
+- chunk I/O;
+- Netty networking;
+- other upstream Paper operations already designed for concurrency.
+
+The following remain authoritative and synchronous:
+
+- Bukkit event listeners and cancellation results;
+- commands;
+- inventory actions;
+- combat and entity mutation;
+- world and block mutation;
+- AI, redstone and tick ordering;
+- synchronous plugin return values.
+
+## Optional emergency mode
+
+Timing-changing load shedding requires an explicit opt-out from semantic preservation:
+
+```properties
+behavior.preserve-semantics=false
+plugins.defer-repeating-tasks=true
+tnt.load-shedding-enabled=true
+```
+
+This mode is not the production default because it changes when work occurs.
 
 ## Auditable build output
 
 GitHub Actions publishes:
 
-- `ZEROX-Paper-1.21.11-v3.jar`
-- `ZEROX-Paper-1.21.11-v3.jar.sha256`
+- `ZEROX-Paper-1.21.11-v4.jar`
+- `ZEROX-Paper-1.21.11-v4.jar.sha256`
 - `zerox-build.json`
-- `zerox-paper-server.patch`
-- `zerox-minecraft.patch`
-- `BUGFIXES.yml`
-- `BENCHMARKS.md`
-- CI startup, scheduler-profile and TNT-guard logs
+- exact generated source diffs
+- `PATCHES.md`, `BUGFIXES.yml` and `BENCHMARKS.md`
+- CI evidence for slow-task telemetry, preserved sync execution and bounded async concurrency
 
-The executable jar contains this manifest, the claims manifest, benchmark record and all five review patches under `META-INF/zerox/`.
+## Accurate claim
 
-## Scope of claims
+> Based on Paper 1.21.11 build 132 with selected ZEROX semantic-preserving performance, bounded async-plugin parallelism, observability, startup and activation patches.
 
-This release is accurately described as:
-
-> Based on Paper 1.21.11 build 132 with selected ZEROX performance, bounded plugin parallelism, scheduler load protection, startup, activation and TNT load-protection patches.
-
-It does not claim:
-
-- every Paper or Minecraft bug is fixed;
-- a fixed MSPT under arbitrary workloads;
-- Folia-style regionized world ticking;
-- arbitrary synchronous Bukkit events are parallelized;
-- byte-for-byte reproducibility until independently verified.
-
-Plugins can still block the server thread inside synchronous event listeners, commands, database calls or direct world scans. ZEROX reports those scheduler overruns, but plugin source changes are required to move such work safely to async execution.
+This release does not claim guaranteed MSPT, full multicore world ticking, or automatic thread-safety for synchronous plugins.
