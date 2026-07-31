@@ -1,0 +1,20 @@
+Subject: [ZEROX] Restore legacy TNT and world settings on upgrade
+
+ZEROX v2/v3 wrote behavior-changing values into persistent configuration files.
+Restoring Java source defaults in v4 did not modify those existing files, so upgraded
+servers could remain limited to 16 or 32 primed TNT ticks per tick.
+
+This patch adds a one-time, exact-value migration when semantic-preserving mode is active:
+
+- `spigot.yml`: `max-tnt-per-tick: 16|32` -> `100`
+- `config/paper-world-defaults.yml`: armor-stand collision lookup `false` -> `true`
+- `config/paper-world-defaults.yml`: pathfinding-on-block-update `false` -> `true`
+- force `tnt.load-shedding-enabled=false`
+- force `plugins.defer-repeating-tasks=false`
+
+Only exact values previously shipped by ZEROX are migrated. Every changed file is backed
+up under `.zerox/backups/` before replacement, and a one-time migration marker is stored
+in `.zerox/zerox.properties`.
+
+The regression test starts from a legacy configuration, requires automatic migration and
+backup creation, then ignites TNT and verifies no ZEROX deferral is emitted.
