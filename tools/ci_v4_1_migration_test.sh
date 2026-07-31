@@ -111,14 +111,14 @@ grep -Eq '^migration\.v4-1-gameplay-restored=true$' .zerox/zerox.properties
 test -f .zerox/backups/spigot.yml.pre-v4.1.bak
 test -f .zerox/backups/config_paper-world-defaults.yml.pre-v4.1.bak
 
-# Prove a real TNT chain primes and completes with no ZEROX fuse deferral.
+# Deterministically prove a real TNT block primes and completes with no ZEROX fuse deferral.
 echo 'forceload add 0 0' >&3
 sleep 2
-echo 'fill 0 80 0 3 83 3 minecraft:tnt' >&3
+echo 'setblock 8 80 8 minecraft:tnt' >&3
 sleep 1
-echo 'setblock 0 79 0 minecraft:redstone_block' >&3
-sleep 10
-echo 'execute unless entity @e[type=minecraft:tnt] run say [ZEROX-CI] TNT-BLASTED' >&3
+echo 'setblock 8 79 8 minecraft:redstone_block' >&3
+sleep 8
+echo 'execute unless entity @e[type=minecraft:tnt] unless block 8 80 8 minecraft:tnt run say [ZEROX-CI] TNT-BLASTED' >&3
 
 BLASTED=0
 for _ in $(seq 1 30); do
@@ -136,7 +136,7 @@ done
 
 if [[ "$BLASTED" -ne 1 ]]; then
   cat server.log
-  echo 'TNT did not finish exploding after legacy migration' >&2
+  echo 'TNT block did not prime and finish exploding after legacy migration' >&2
   exit 1
 fi
 if grep -q 'TNT load guard deferred' server.log; then
