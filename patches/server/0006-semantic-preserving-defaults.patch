@@ -1,0 +1,43 @@
+Subject: [ZEROX 6/6] Preserve real gameplay and plugin execution semantics
+
+ZEROX v4 makes optimization non-destructive by default.
+
+Default behavior:
+
+- synchronous Bukkit tasks are measured and reported but are not skipped, cancelled, reordered, replaced, or deferred;
+- Bukkit event listeners, commands, inventory actions, entity operations, world mutations, redstone, AI and plugin return values remain authoritative and synchronous;
+- primed TNT uses Paper's upstream tick ceiling and normal fuse timing;
+- the ZEROX TNT load-shedding limiter is disabled;
+- armor-stand collision lookups and block-update pathfinding retain upstream behavior;
+- Paper's optimized explosion calculation remains enabled;
+- plugins that already request asynchronous scheduling use the bounded ZEROX parallel executor.
+
+Master setting:
+
+```properties
+behavior.preserve-semantics=true
+```
+
+This master setting overrides older v3 values that enabled task or TNT deferral. Therefore, an upgraded installation preserves real behavior even when its existing configuration still contains:
+
+```properties
+plugins.defer-repeating-tasks=true
+tnt.load-shedding-enabled=true
+```
+
+Optional emergency load shedding can only be enabled deliberately:
+
+```properties
+behavior.preserve-semantics=false
+plugins.defer-repeating-tasks=true
+tnt.load-shedding-enabled=true
+```
+
+That optional mode changes timing and is not the v4 default.
+
+Safe parallelism boundary:
+
+- existing Bukkit async tasks: parallel and bounded;
+- Paper chunk workers, I/O and Netty: parallel;
+- synchronous world/event/plugin behavior: unchanged;
+- arbitrary synchronous callbacks are never moved to worker threads automatically.
