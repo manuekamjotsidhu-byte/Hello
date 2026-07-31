@@ -12,7 +12,7 @@ FIXED_TIMESTAMP = (2026, 7, 31, 0, 0, 0)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Embed ZEROX v4.2 audit metadata into a Paperclip jar")
+    parser = argparse.ArgumentParser(description="Embed ZEROX v4.3 audit metadata into a Paperclip jar")
     parser.add_argument("jar", type=Path)
     parser.add_argument("--upstream-commit", required=True)
     parser.add_argument("--zerox-commit", required=True)
@@ -56,7 +56,7 @@ def main() -> None:
     source_sha256 = hashlib.sha256(jar.read_bytes()).hexdigest()
     metadata = {
         "name": "ZEROX Paper",
-        "version": "2.2.2",
+        "version": "2.3.0",
         "minecraftVersion": "1.21.11",
         "upstreamPaperBuild": 132,
         "upstreamCommit": args.upstream_commit,
@@ -67,7 +67,7 @@ def main() -> None:
         "sourceRepository": "https://github.com/manuekamjotsidhu-byte/Hello",
         "javaTarget": 21,
         "paperPluginLoading": True,
-        "pluginAsyncParallelism": "bounded",
+        "pluginAsyncParallelism": "bounded and adaptive",
         "semanticPreservingDefault": True,
         "syncTaskDeferralDefault": False,
         "tntLoadSheddingDefault": False,
@@ -80,16 +80,26 @@ def main() -> None:
         "joinRampIntervalTicks": 8,
         "joinStartGraceTicks": 10,
         "joinRampMaxStepsPerTick": 1,
-        "playerChunkSendRate": 35.0,
-        "playerChunkLoadRate": 50.0,
-        "playerChunkGenerateRate": 12.0,
-        "playerConcurrentChunkLoads": 4,
-        "playerConcurrentChunkGenerates": 2,
+        "playerChunkSendRate": 24.0,
+        "playerChunkLoadRate": 36.0,
+        "playerChunkGenerateRate": 8.0,
+        "playerConcurrentChunkLoads": 3,
+        "playerConcurrentChunkGenerates": 1,
         "maxJoinsPerTick": 1,
         "slowSynchronousEventTelemetry": True,
+        "highDensityProfile": True,
+        "targetMspt": 20,
+        "targetPlayers": "200-300 requires production validation; not guaranteed",
+        "callerRunsPolicyRemoved": True,
+        "asyncWorkRunsOnMainThreadWhenSaturated": False,
+        "adaptiveAsyncConcurrency": True,
+        "asyncOverflowQueue": 16384,
+        "reservedMainCores": 2,
         "arbitrarySyncPluginEventsParallelized": False,
         "unsafeSynchronousEventsParallelized": False,
+        "unsafeSynchronousWorkAutomaticallyParallelized": False,
         "joinWorkDropped": False,
+        "workDropped": False,
         "gameplayDefaultsPreserved": True,
         "fullMulticoreTicking": False,
         "fixedMsptGuarantee": False,
@@ -104,7 +114,7 @@ def main() -> None:
         *(f"META-INF/zerox/patches/{path.name}" for path in patches),
     }
 
-    with tempfile.NamedTemporaryFile(prefix="zerox-paper-v4-2-", suffix=".jar", delete=False, dir=jar.parent) as temporary:
+    with tempfile.NamedTemporaryFile(prefix="zerox-paper-v4-3-", suffix=".jar", delete=False, dir=jar.parent) as temporary:
         temporary_path = Path(temporary.name)
 
     try:
