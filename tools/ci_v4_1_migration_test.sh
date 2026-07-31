@@ -100,7 +100,7 @@ if [[ "$READY" -ne 1 ]]; then
   exit 1
 fi
 
-grep -q 'ZEROX Paper 1.21.11-v4.1' server.log
+grep -Eq 'ZEROX Paper 1\.21\.11-v4\.[12]' server.log
 grep -q 'Restored legacy v2/v3 gameplay limits' server.log
 grep -Eq '^[[:space:]]*max-tnt-per-tick:[[:space:]]*100([[:space:]]|$)' spigot.yml
 grep -Eq '^[[:space:]]*do-collision-entity-lookups:[[:space:]]*true([[:space:]]|$)' config/paper-world-defaults.yml

@@ -1,8 +1,8 @@
-name: Build ZEROX Paper 1.21.11 v4.1
+name: Build ZEROX Paper 1.21.11 v4.2
 
 on:
   push:
-    branches: [main, zerox-paper-v4-1-tnt-fix]
+    branches: [main, zerox-paper-v4-2-join-load]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -12,12 +12,12 @@ permissions:
 
 env:
   UPSTREAM_COMMIT: c5eb0790f199da6c38d0a650e1e5cd5415b28185
-  ZEROX_JAR: ZEROX-Paper-1.21.11-v4.1.jar
+  ZEROX_JAR: ZEROX-Paper-1.21.11-v4.2.jar
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 80
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -62,6 +62,7 @@ jobs:
           python3 tools/finalize_v3_metadata.py paper
           python3 tools/apply_semantic_preserving.py paper
           python3 tools/apply_v4_1_migration.py paper
+          python3 tools/apply_v4_2_join_load.py paper
 
       - name: Capture exact generated source diffs
         shell: bash
@@ -72,7 +73,10 @@ jobs:
             paper-server/src/main/java/io/papermc/paper/zerox \
             paper-server/src/main/java/org/bukkit/craftbukkit/scheduler/ZeroxSchedulerGuard.java \
             paper-server/src/main/resources/META-INF/zerox-build.json
-          git -C paper diff -- paper-server/src/main/java paper-server/src/main/resources > audit/zerox-paper-server.patch
+          git -C paper diff -- \
+            paper-api/src/main/java \
+            paper-server/src/main/java \
+            paper-server/src/main/resources > audit/zerox-paper-server.patch
           git -C paper/paper-server/src/minecraft diff > audit/zerox-minecraft.patch
           test -s audit/zerox-paper-server.patch
           test -s audit/zerox-minecraft.patch
@@ -105,13 +109,15 @@ jobs:
           unzip -t "out/$ZEROX_JAR"
           unzip -p "out/$ZEROX_JAR" META-INF/zerox-build.json | tee out/zerox-build.json
           grep -F '"name": "ZEROX Paper"' out/zerox-build.json
-          grep -F '"version": "2.2.1"' out/zerox-build.json
+          grep -F '"version": "2.2.2"' out/zerox-build.json
           grep -F '"semanticPreservingDefault": true' out/zerox-build.json
-          grep -F '"tntLoadSheddingDefault": false' out/zerox-build.json
-          grep -F '"legacyGameplayMigration": true' out/zerox-build.json
-          grep -F '"restoredTntValue": 100' out/zerox-build.json
+          grep -F '"progressiveJoinViewDistance": true' out/zerox-build.json
+          grep -F '"joinWorkDropped": false' out/zerox-build.json
+          grep -F '"unsafeSynchronousEventsParallelized": false' out/zerox-build.json
+          grep -F '"playerConcurrentChunkLoads": 4' out/zerox-build.json
+          grep -F '"playerConcurrentChunkGenerates": 2' out/zerox-build.json
           grep -F '"upstreamPaperBuild": 132' out/zerox-build.json
-          unzip -l "out/$ZEROX_JAR" | grep -F 'META-INF/zerox/patches/0007-restore-legacy-tnt-and-world-settings.patch'
+          unzip -l "out/$ZEROX_JAR" | grep -F 'META-INF/zerox/patches/0008-progressive-player-join-load.patch'
 
       - name: Startup and semantic-preservation regression test
         shell: bash
@@ -127,10 +133,17 @@ jobs:
           SERVER_PORT: '25566'
         run: bash tools/ci_v4_1_migration_test.sh "out/$ZEROX_JAR"
 
-      - name: Upload ZEROX Paper v4.1
+      - name: Join-load migration and event attribution test
+        shell: bash
+        env:
+          P_SERVER_UUID: ci-join-load
+          SERVER_PORT: '25567'
+        run: bash tools/ci_v4_2_join_load_test.sh "out/$ZEROX_JAR"
+
+      - name: Upload ZEROX Paper v4.2
         uses: actions/upload-artifact@v4
         with:
-          name: ZEROX-Paper-1.21.11-v4.1
+          name: ZEROX-Paper-1.21.11-v4.2
           path: out/*
           if-no-files-found: error
           retention-days: 30

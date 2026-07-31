@@ -1,0 +1,12 @@
+Subject: [ZEROX] Smooth player join chunk work without dropping gameplay
+
+- Starts joined players at a small send distance after PlayerJoinEvent and
+  increases it one chunk at a time.
+- Keeps Bukkit events and world mutations on the authoritative main thread.
+- Feeds chunk loading/generation gradually into Paper's existing worker system.
+- Bounds per-player chunk send/load/generation rates and concurrency.
+- Serializes simultaneous join finalization to one player per tick.
+- Reports slow synchronous event listeners with plugin, event and listener class.
+- Never cancels, skips or replaces join work.
+- Respects explicit post-join plugin changes to player send distance.
+- Migrates only exact upstream Paper defaults and backs up paper-global.yml.

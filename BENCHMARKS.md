@@ -2,98 +2,91 @@
 
 ## User-observed baseline
 
-The supplied Pterodactyl test used Paper 1.21.11, Java 25, a 512 MiB heap, zero plugins and one player.
+The supplied Pterodactyl test used Paper 1.21.11, Java 25 and a 512 MiB heap. Light load held approximately 20 TPS with median MSPT around 5.7–7.4 ms. Large real TNT work exceeded one tick and reduced TPS. A later production observation showed CPU reaching maximum when a player joined.
 
-Before the large TNT chain:
+The join symptom can come from two different sources:
 
-- median MSPT: approximately 5.7–7.4 ms;
-- short-window p95 MSPT: approximately 8.1–10.5 ms;
-- TPS: approximately 20.0.
+1. initial chunk loading, generation, lighting and sending;
+2. synchronous plugin handlers such as `PlayerJoinEvent`, permission, scoreboard, placeholder, database or world-scan code.
 
-After creating 30,870 TNT blocks, one-minute TPS fell through:
+The first category can use Paper's worker system. The second category cannot be blindly moved off-thread without breaking Bukkit semantics.
 
-`19.1, 17.6, 16.7, 16.0, 15.2, 14.4, 13.6, 11.9`
+## ZEROX v4.2 join-load design
 
-This demonstrates that unlimited real work can exceed one server tick. It does not justify silently changing gameplay timing.
+V4.2 reduces the initial join burst without dropping work:
 
-## ZEROX v4 acceptance test
+```text
+initial player send distance: 3 chunks
+ramp interval: 8 ticks
+ramp size: 1 chunk
+start grace: 10 ticks
+maximum ramp steps per server tick: 1
+```
+
+Paper chunk limits used by default:
+
+```text
+player chunk send rate: 35 chunks/second
+player chunk load rate: 50 chunks/second
+player chunk generation rate: 12 chunks/second
+concurrent loads per player: 4
+concurrent generations per player: 2
+maximum joins finalized per tick: 1
+```
+
+The server continues completing requested chunks. It feeds them gradually into Paper's existing asynchronous chunk loading, generation and I/O paths instead of creating a large join-time burst.
+
+## Synchronous plugin event attribution
+
+Every synchronous Bukkit listener is timed. A listener taking at least 15 ms produces an attributed warning containing:
+
+- plugin name;
+- event name;
+- listener class;
+- elapsed milliseconds.
+
+The listener remains on the main thread because event cancellation, return values, inventory/world mutation and plugin ordering are authoritative. V4.2 does not pretend unsafe code is parallel.
+
+## CI acceptance test
 
 GitHub Actions builds the fork from pinned Paper build 132 source and starts the real Paperclip jar on Java 21.
 
-A synthetic plugin creates:
-
-- one repeating synchronous task that sleeps for approximately 12 ms every tick;
-- 32 Bukkit asynchronous tasks;
-- counters for synchronous execution cadence and maximum async concurrency.
-
-The build passes only when all of these are true:
+The v4.2 regression test starts with exact upstream `paper-global.yml` values and passes only when:
 
 1. The server reaches the Minecraft `Done` state.
-2. Runtime identity reports `ZEROX Paper 1.21.11-v4`.
-3. Runtime reports `preserve-semantics=true`.
-4. Runtime reports TNT load shedding disabled.
-5. The slow synchronous task is attributed and logged.
-6. The repeating task still executes at its real cadence; it is not deferred.
-7. No ZEROX plugin-task deferral message appears.
-8. Async concurrency reaches at least two tasks through the bounded pool.
-9. A moderate 64-TNT chain executes without ZEROX fuse deferral.
+2. Runtime identity reports `ZEROX Paper 1.21.11-v4.2`.
+3. The join-load controller reports its enabled configuration.
+4. Exact upstream chunk/join defaults are migrated to the bounded v4.2 values.
+5. The original `paper-global.yml` is backed up.
+6. Custom ZEROX join settings are persisted in `.zerox/zerox.properties`.
+7. A synthetic synchronous event listener deliberately taking over 15 ms is attributed in the server log.
+8. The event still executes normally; it is not skipped or moved off-thread.
+9. Existing semantic-preservation and TNT regression tests continue to pass.
 10. The server remains alive and shuts down cleanly.
-
-The CI configuration deliberately includes old aggressive values:
-
-```properties
-behavior.preserve-semantics=true
-plugins.defer-repeating-tasks=true
-tnt.load-shedding-enabled=true
-```
-
-This proves the master semantic-preservation setting overrides stale v3 configuration.
-
-## Safe plugin parallelism
-
-ZEROX parallelizes only work that is already declared asynchronous by the plugin. The executor is bounded to prevent thread explosions and resource exhaustion.
-
-Default production profile for six visible vCores:
-
-```properties
-behavior.preserve-semantics=true
-
-plugins.sync-global-budget-ms=6
-plugins.sync-per-plugin-budget-ms=3
-plugins.sync-task-warning-ms=10
-plugins.defer-repeating-tasks=false
-plugins.log-overruns=true
-
-plugins.async-core-threads=2
-plugins.async-max-threads=4
-plugins.async-queue-capacity=4096
-
-tnt.load-shedding-enabled=false
-```
-
-Synchronous event listeners, commands, world mutation, inventory changes, combat and entity state remain on the authoritative server thread. ZEROX records slow scheduler tasks but does not alter their result or timing.
-
-## What semantic preservation costs
-
-A plugin that performs 30 ms of synchronous work still consumes 30 ms. ZEROX can identify it, but cannot make unsafe code parallel without changing behavior or introducing races.
-
-Likewise, 30,000 real TNT explosions cannot be completed instantly while preserving exact fuse and event timing. v4 keeps those semantics. Administrators must reduce the workload, accept lag, or explicitly enable the optional timing-changing emergency mode.
 
 ## Production acceptance target
 
-Use the real workload:
+Target environment:
 
-- CPU: AMD EPYC 7F72;
+- AMD EPYC 7F72;
 - six dedicated or pinned vCores;
 - 16 GiB container memory;
 - Java 21;
 - 12 GiB matching `Xms` and `Xmx`;
 - exact production plugin versions;
 - production-world copy with pregenerated chunks;
-- 60–80 players;
-- 30-minute warm-up and at least 60 minutes measured.
+- 60–80 players.
 
-Normal-load targets:
+Measure joins into both pregenerated and ungenerated areas. Record:
+
+- CPU peak and duration during join;
+- main-thread MSPT p50/p95/p99;
+- chunk worker CPU utilization;
+- time until configured send distance is restored;
+- slow listener warnings during `PlayerJoinEvent`;
+- TPS during single and simultaneous joins.
+
+Normal-load targets remain:
 
 - median MSPT no more than 10 ms;
 - p95 no more than 20 ms;
