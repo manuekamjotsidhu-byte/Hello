@@ -1,8 +1,8 @@
-name: Build ZEROX Paper 1.21.11 v4
+name: Build ZEROX Paper 1.21.11 v4.1
 
 on:
   push:
-    branches: [main, zerox-paper-v4-semantic-preserving]
+    branches: [main, zerox-paper-v4-1-tnt-fix]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -12,12 +12,12 @@ permissions:
 
 env:
   UPSTREAM_COMMIT: c5eb0790f199da6c38d0a650e1e5cd5415b28185
-  ZEROX_JAR: ZEROX-Paper-1.21.11-v4.jar
+  ZEROX_JAR: ZEROX-Paper-1.21.11-v4.1.jar
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +61,7 @@ jobs:
           python3 tools/apply_plugin_parallelism.py paper
           python3 tools/finalize_v3_metadata.py paper
           python3 tools/apply_semantic_preserving.py paper
+          python3 tools/apply_v4_1_migration.py paper
 
       - name: Capture exact generated source diffs
         shell: bash
@@ -104,12 +105,13 @@ jobs:
           unzip -t "out/$ZEROX_JAR"
           unzip -p "out/$ZEROX_JAR" META-INF/zerox-build.json | tee out/zerox-build.json
           grep -F '"name": "ZEROX Paper"' out/zerox-build.json
-          grep -F '"version": "2.2.0"' out/zerox-build.json
+          grep -F '"version": "2.2.1"' out/zerox-build.json
           grep -F '"semanticPreservingDefault": true' out/zerox-build.json
-          grep -F '"syncTaskDeferralDefault": false' out/zerox-build.json
           grep -F '"tntLoadSheddingDefault": false' out/zerox-build.json
+          grep -F '"legacyGameplayMigration": true' out/zerox-build.json
+          grep -F '"restoredTntValue": 100' out/zerox-build.json
           grep -F '"upstreamPaperBuild": 132' out/zerox-build.json
-          unzip -l "out/$ZEROX_JAR" | grep -F 'META-INF/zerox/patches/0006-semantic-preserving-defaults.patch'
+          unzip -l "out/$ZEROX_JAR" | grep -F 'META-INF/zerox/patches/0007-restore-legacy-tnt-and-world-settings.patch'
 
       - name: Startup and semantic-preservation regression test
         shell: bash
@@ -118,10 +120,17 @@ jobs:
           SERVER_PORT: '25565'
         run: bash tools/ci_smoke_test.sh "out/$ZEROX_JAR"
 
-      - name: Upload ZEROX Paper v4
+      - name: Legacy configuration migration and TNT completion test
+        shell: bash
+        env:
+          P_SERVER_UUID: ci-migration
+          SERVER_PORT: '25566'
+        run: bash tools/ci_v4_1_migration_test.sh "out/$ZEROX_JAR"
+
+      - name: Upload ZEROX Paper v4.1
         uses: actions/upload-artifact@v4
         with:
-          name: ZEROX-Paper-1.21.11-v4
+          name: ZEROX-Paper-1.21.11-v4.1
           path: out/*
           if-no-files-found: error
           retention-days: 30
