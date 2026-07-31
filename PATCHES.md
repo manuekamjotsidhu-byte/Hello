@@ -1,4 +1,4 @@
-# ZEROX Paper 1.21.11 v4.2 patch manifest
+# ZEROX Paper 1.21.11 v4.3 patch manifest
 
 ## Upstream identity
 
@@ -11,7 +11,7 @@
 ## ZEROX patch series
 
 1. `0001-visible-build-identity.patch`
-   - Identifies the implementation as `ZEROX Paper` and embeds build identity.
+   - Visible ZEROX build and source identity.
 
 2. `0002-safe-performance-defaults.patch`
    - Enables Paper's optimized explosion calculation.
@@ -20,64 +20,75 @@
    - Optional emergency TNT load shedding; disabled in semantic-preserving mode.
 
 4. `0004-startup-runtime-profile.patch`
-   - Reports startup timing and configures bounded worker and Netty threads.
+   - Startup timing plus bounded Paper worker and Netty configuration.
 
 5. `0005-plugin-parallelism-load-guard.patch`
-   - Uses a bounded executor only for tasks plugins already schedule asynchronously.
-   - Measures synchronous scheduler work.
+   - Bounded execution for plugin work already declared asynchronous.
+   - Synchronous scheduler timing telemetry.
 
 6. `0006-semantic-preserving-defaults.patch`
-   - Keeps Bukkit events, commands, world mutation and plugin return values authoritative.
-   - Disables task and TNT deferral by default.
+   - Events, commands, world mutation and plugin return values remain authoritative.
+   - Plugin-task and TNT deferral are disabled by default.
 
 7. `0007-restore-legacy-tnt-and-world-settings.patch`
-   - Repairs exact v2/v3 persistent values and creates backups under `.zerox/backups/`.
+   - Repairs exact older ZEROX values and creates backups.
 
 8. `0008-progressive-player-join-load.patch`
-   - Starts post-event player chunk delivery at send distance `3` and expands it one chunk every `8` ticks.
-   - Uses Paper's existing asynchronous chunk loading, generation and I/O workers instead of performing chunk work on the main thread.
-   - Bounds per-player chunk rates to `35` sends/s, `50` loads/s and `12` generations/s.
-   - Caps per-player concurrency at `4` chunk loads and `2` chunk generations.
-   - Finalizes at most one simultaneous join per tick.
-   - Reports slow synchronous event listeners with plugin, event and listener class.
-   - Does not cancel, skip, replace or silently defer player work.
-   - Does not move arbitrary Bukkit listeners or world access off-thread.
-   - Respects explicit plugin changes to per-player send distance.
+   - Progressive post-join send-distance expansion.
+   - Bounded asynchronous chunk loading, generation and sending.
+   - Slow synchronous listener attribution.
 
-## Default safety model
+9. `0009-high-density-backpressure.patch`
+   - Removes `CallerRunsPolicy` from the asynchronous plugin executor.
+   - Saturated async work is retained in an off-main overflow queue.
+   - Adapts async concurrency using measured synchronous plugin pressure and MSPT.
+   - Reserves CPU capacity for the authoritative server tick.
+   - Pauses and later resumes join chunk expansion under pressure.
+   - Uses denser per-player chunk admission values: send `24`, load `36`, generate `8`, concurrent load/generate `3/1`.
+   - Does not automatically parallelize unsafe synchronous Bukkit work.
+
+## V4.3 density defaults
 
 ```properties
 behavior.preserve-semantics=true
 plugins.defer-repeating-tasks=false
 tnt.load-shedding-enabled=false
 
+density.target-mspt=20
+density.plugin-high-ms=12
+density.plugin-critical-ms=18
+density.join-hold-mspt=18
+density.reserve-main-cores=2
+density.async-overflow-queue=16384
+
+plugins.async-core-threads=auto
+plugins.async-max-threads=auto
+plugins.async-queue-capacity=16384
+
 join.progressive-view-distance=true
 join.initial-send-distance=3
 join.ramp-interval-ticks=8
 join.start-grace-ticks=10
 join.max-ramp-steps-per-tick=1
-events.listener-warning-ms=15
+events.listener-warning-ms=10
 ```
 
-Join work is queued and completed; it is not discarded. Only chunk operations already designed by Paper for concurrency use worker threads. Synchronous plugin event handlers remain on the server thread because their cancellation state, return values and world mutations are part of the current tick.
+## Configuration migration
 
-## Existing configuration migration
-
-On first v4.2 startup, exact upstream values in `config/paper-global.yml` are migrated:
+V4.3 migrates only exact v4.2 admission values:
 
 ```text
-player-max-chunk-send-rate: 75.0  -> 35.0
-player-max-chunk-load-rate: 100.0 -> 50.0
-player-max-chunk-generate-rate: -1.0 -> 12.0
-player-max-concurrent-chunk-loads: 0 -> 4
-player-max-concurrent-chunk-generates: 0 -> 2
-max-joins-per-tick: 5 -> 1
+player-max-chunk-send-rate: 35.0 -> 24.0
+player-max-chunk-load-rate: 50.0 -> 36.0
+player-max-chunk-generate-rate: 12.0 -> 8.0
+player-max-concurrent-chunk-loads: 4 -> 3
+player-max-concurrent-chunk-generates: 2 -> 1
 ```
 
-Custom non-default administrator values are preserved. The original file is backed up as `.zerox/backups/config_paper-global.yml.pre-v4.2.bak`.
+The original file is backed up as `.zerox/backups/config_paper-global.yml.pre-v4.3.bak`. Custom values are retained.
 
-## Accurate claim
+## Claim boundary
 
-> Based on Paper 1.21.11 build 132 with semantic-preserving join-load smoothing, bounded asynchronous chunk/plugin work, synchronous event attribution, migration, startup and stability patches.
+The fork can prevent asynchronous saturation and join/chunk bursts from unnecessarily starving the main tick. It cannot safely move arbitrary synchronous listeners, commands, inventories, entity logic or world mutation to other threads.
 
-This release does not claim full multicore world ticking, guaranteed MSPT, or safe parallel execution of arbitrary synchronous plugins.
+Running 200–300 players on 8 GiB depends on CPU allocation, world state, view distance, entity count and the exact plugin set. A fixed sub-20 MSPT guarantee is not claimed without a production benchmark.

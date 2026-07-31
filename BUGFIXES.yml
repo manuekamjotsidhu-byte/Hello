@@ -1,6 +1,6 @@
 schema: 1
 project: ZEROX Paper
-version: 2.2.2
+version: 2.3.0
 minecraft: 1.21.11
 upstream:
   project: PaperMC/Paper
@@ -13,80 +13,56 @@ performance_changes:
   - id: ZPX-PERF-001
     name: Optimized explosion calculation
     patch: patches/server/0002-safe-performance-defaults.patch
-    behavior_preserved: true
 
   - id: ZPX-PERF-005
-    name: Bounded async plugin parallelism and sync-task telemetry
+    name: Bounded asynchronous plugin executor
     patch: patches/server/0005-plugin-parallelism-load-guard.patch
-    behavior_preserved: true
 
   - id: ZPX-PERF-006
-    name: Semantic-preserving production defaults
+    name: Semantic-preserving defaults
     patch: patches/server/0006-semantic-preserving-defaults.patch
     defaults:
       preserve_semantics: true
       defer_repeating_tasks: false
       tnt_load_shedding: false
-      max_tnt_per_tick: 100
 
   - id: ZPX-FIX-007
-    name: Restore legacy persistent TNT and world values
+    name: Legacy gameplay-setting restoration
     patch: patches/server/0007-restore-legacy-tnt-and-world-settings.patch
-    migration:
-      spigot_max_tnt_per_tick:
-        from: [16, 32]
-        to: 100
-      armor_stand_collision_lookups:
-        from: false
-        to: true
-      update_pathfinding_on_block_update:
-        from: false
-        to: true
-      backups: .zerox/backups
-      marker: migration.v4-1-gameplay-restored
 
   - id: ZPX-PERF-008
-    name: Progressive player join and chunk-load smoothing
+    name: Progressive player join loading
     patch: patches/server/0008-progressive-player-join-load.patch
+
+  - id: ZPX-PERF-009
+    name: High-density backpressure
+    patch: patches/server/0009-high-density-backpressure.patch
     defaults:
-      progressive_view_distance: true
-      initial_send_distance: 3
-      ramp_interval_ticks: 8
-      start_grace_ticks: 10
-      max_ramp_steps_per_tick: 1
-      player_chunk_send_rate: 35.0
-      player_chunk_load_rate: 50.0
-      player_chunk_generate_rate: 12.0
-      player_max_concurrent_chunk_loads: 4
-      player_max_concurrent_chunk_generates: 2
+      target_mspt: 20
+      reserve_main_cores: 2
+      async_overflow_queue: 16384
+      player_chunk_send_rate: 24.0
+      player_chunk_load_rate: 36.0
+      player_chunk_generate_rate: 8.0
+      player_max_concurrent_chunk_loads: 3
+      player_max_concurrent_chunk_generates: 1
       max_joins_per_tick: 1
-      slow_event_warning_ms: 15
-    behavior:
-      - PlayerJoinEvent and plugin world access remain synchronous and authoritative.
-      - Initial chunk expansion is queued and completed rather than dropped.
-      - Eligible chunk loading, generation and I/O use Paper worker threads.
-      - Explicit plugin changes to per-player send distance are respected.
-      - Slow synchronous listeners are attributed to plugin, event and listener class.
     migration:
       file: config/paper-global.yml
-      exact_upstream_defaults_only: true
-      backup: .zerox/backups/config_paper-global.yml.pre-v4.2.bak
-      marker: migration.v4-2-join-load
+      backup: .zerox/backups/config_paper-global.yml.pre-v4.3.bak
+      marker: migration.v4-3-density
 
 claims:
   all_paper_bugs_patched: false
-  guaranteed_sub_10_mspt: false
+  guaranteed_sub_20_mspt_at_300_players: false
   full_multicore_world_ticking: false
-  bounded_async_plugin_parallelism: true
-  progressive_join_load: true
-  join_work_dropped: false
-  arbitrary_sync_plugin_events_parallelized: false
-  slow_sync_event_attribution: true
+  adaptive_async_concurrency: true
+  caller_runs_policy_removed: true
+  queued_work_dropped: false
   gameplay_semantics_preserved_default: true
   paper_plugin_loading: true
 
 notes:
-  - Arbitrary synchronous Bukkit handlers cannot safely be moved to workers.
-  - v4.2 spreads only known join/chunk work that Paper already supports asynchronously.
-  - Custom non-default administrator values are preserved.
-  - Every migrated YAML file is backed up before replacement.
+  - The 200-300 player target requires testing with the production plugin set and world.
+  - Synchronous Bukkit operations retain their normal execution model.
+  - Custom administrator values are preserved unless they match an earlier ZEROX default exactly.
